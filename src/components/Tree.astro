@@ -1,0 +1,35 @@
+---
+import Tree from './Tree.astro';
+import { documentUrl, sourceFor, type DocumentNode, type Language } from '../lib/model';
+import { text } from '../lib/i18n';
+
+interface Props {
+  nodes: DocumentNode[];
+  language: Language;
+  activeKey?: string;
+}
+const { nodes, language, activeKey } = Astro.props;
+const t = text(language);
+---
+<ul class="tree">
+  {nodes.map((node) => (
+    <li>
+      {node.folder ? (
+        <details open={activeKey === node.key || activeKey?.startsWith(`${node.key}/`)}>
+          <summary>
+            <a href={documentUrl(language, node.key)} aria-current={activeKey === node.key ? 'page' : undefined}>
+              {sourceFor(node, language).data.title}
+              {!node.translations[language] && <span class="translation-dot" title={t.pending}>○</span>}
+            </a>
+          </summary>
+          <Tree nodes={node.children} language={language} activeKey={activeKey} />
+        </details>
+      ) : (
+        <a href={documentUrl(language, node.key)} aria-current={activeKey === node.key ? 'page' : undefined}>
+          {sourceFor(node, language).data.title}
+          {!node.translations[language] && <span class="translation-dot" title={t.pending}>○</span>}
+        </a>
+      )}
+    </li>
+  ))}
+</ul>

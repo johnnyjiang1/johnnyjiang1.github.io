@@ -1,0 +1,38 @@
+---
+import { buildInfo, commitUrl } from '../lib/git';
+import PageInfo from '../components/PageInfo.astro';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>知识笔记 / Knowledge Notes</title>
+    <meta name="description" content="知识笔记 · Knowledge Notes" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline>
+      let saved;
+      try { saved = localStorage.getItem('notes-language'); }
+      catch (error) { console.warn('Language preference storage is unavailable.', error); }
+      const preferred = navigator.languages?.[0] ?? navigator.language ?? 'en';
+      const language = saved === 'zh' || saved === 'en' ? saved : /^zh\b/i.test(preferred) ? 'zh' : 'en';
+      location.replace(`/${language}/${location.search}${location.hash}`);
+    </script>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { max-width: 42rem; margin: 15vh auto; padding: 2rem; line-height: 1.8; }
+      a { color: #258fb8; }
+      nav { display: flex; gap: 2rem; }
+      footer { margin-top: 4rem; font-size: .8rem; }
+    </style>
+  </head>
+  <body>
+    <h1>知识笔记</h1>
+    <p>Knowledge Notes</p>
+    <nav aria-label="Choose language"><a href="/zh/" lang="zh-CN">中文知识库</a><a href="/en/" lang="en">English knowledge base</a></nav>
+    <noscript><p>请选择语言 / Please choose a language.</p></noscript>
+    <footer data-build-time={buildInfo.time} data-build-commit={buildInfo.commit}>Build: <time datetime={buildInfo.time}>{buildInfo.time}</time> · <a href={commitUrl(buildInfo.commit)}>{buildInfo.commit.slice(0, 7)}</a>{buildInfo.dirty ? ' · Uncommitted / 未提交' : ''}</footer>
+    <PageInfo language="zh" filePath="src/pages/index.astro" />
+    <PageInfo language="en" filePath="src/pages/index.astro" />
+  </body>
+</html>

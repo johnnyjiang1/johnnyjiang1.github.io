@@ -1,0 +1,23 @@
+---
+import Site from '../../layouts/Site.astro';
+import { getNotes } from '../../lib/content';
+import { languages, tagUrl, type Language } from '../../lib/model';
+import { text } from '../../lib/i18n';
+export function getStaticPaths() {
+  return languages.map((language) => ({ params: { lang: language }, props: { language } }));
+}
+interface Props { language: Language }
+const { language } = Astro.props;
+const t = text(language);
+const notes = await getNotes(language);
+const tags = [...new Set(notes.flatMap((note) => note.source.data.tags))].sort();
+---
+<Site language={language} title={t.tags} description={t.tags} sourcePath="src/pages/[lang]/tags.astro">
+  <article class="document-card">
+    <header class="document-heading"><p class="eyebrow">KNOWLEDGE / CONNECTIONS</p><h1>{t.tags}</h1></header>
+    <div class="tag-cloud">
+      {tags.map((tag) => <a href={tagUrl(language, tag)}><span>#{tag}</span><span class="tag-count">{notes.filter((note) => note.source.data.tags.includes(tag)).length}</span></a>)}
+    </div>
+    {!tags.length && <p class="empty-state">{t.noTags}</p>}
+  </article>
+</Site>

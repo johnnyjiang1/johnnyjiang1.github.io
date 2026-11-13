@@ -1,0 +1,28 @@
+{
+  "name": "computer-science-notes",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "check": "astro check",
+    "test": "node --test tests/*.test.ts",
+    "build": "astro build && pagefind --site dist --exclude-selectors \".katex-html, annotation\" && node scripts/verify-build.mjs",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "^7.3.0",
+    "astro": "^7.4.5",
+    "katex": "^0.16.25",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@types/node": "^24.0.0",
+    "pagefind": "^1.6.0",
+    "typescript": "~5.9.3"
+  }
+}

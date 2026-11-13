@@ -1,0 +1,86 @@
+---
+import Site from '../../layouts/Site.astro';
+import { getNotes } from '../../lib/content';
+import { documentUrl, languages, type Language, tagUrl } from '../../lib/model';
+import { text, formatDate } from '../../lib/i18n';
+
+export function getStaticPaths() {
+  return languages.map((language) => ({ params: { lang: language }, props: { language } }));
+}
+interface Props { language: Language }
+const { language } = Astro.props;
+const t = text(language);
+const notes = await getNotes(language);
+const categories = [...new Map(notes.filter((note) => note.category).map((note) => [note.category!.key, note])).values()];
+const tags = [...new Set(notes.flatMap((note) => note.source.data.tags))].sort();
+---
+<Site language={language} title={t.notes} description={t.latest} sourcePath="src/pages/[lang]/notes.astro">
+  <article class="document-card">
+    <header class="document-heading">
+      <p class="eyebrow">KNOWLEDGE / TIMELINE</p>
+      <h1>{t.notes}</h1><p class="lead">{t.latest}</p>
+    </header>
+    <form class="note-filters" role="search" data-unknown-filter={t.unknownFilter}>
+      <label>{t.category}<select name="category"><option value="">{t.allCategories}</option>{categories.map((note) => <option value={note.category!.key}>{note.categoryLabel}</option>)}</select></label>
+      <label>{t.tags}<select name="tag"><option value="">{t.allTags}</option>{tags.map((tag) => <option value={tag}>{tag}</option>)}</select></label>
+    </form>
+    <p class="result-count" role="status"><span id="note-count">{notes.length}</span> {t.count}</p>
+    <div class="notes-list">
+      {notes.map((note) => <section class="note-list-item" data-category={note.category?.key ?? ''} data-tags={JSON.stringify(note.source.data.tags)}>
+        <div class="note-date">{note.published ? <time datetime={note.published}>{formatDate(note.published, language, true)}</time> : <span class="status">{t.noHistory}</span>}</div>
+        <h2><a href={documentUrl(language, note.node.key)}>{note.source.data.title}</a></h2>
+        <p>{note.source.data.description}</p>
+        <div class="tag-row">{note.category && <a class="category-chip" href={`/${language}/notes/?category=${encodeURIComponent(note.category.key)}`}>{note.categoryLabel}</a>}{note.source.data.tags.map((tag) => <a class="tag" href={tagUrl(language, tag)}>#{tag}</a>)}</div>
+      </section>)}
+    </div>
+    <p id="no-notes" class="empty-state" hidden={notes.length > 0}>{t.noResults}</p>
+  </article>
+  <script>
+    const form = document.querySelector<HTMLFormElement>('.note-filters');
+    const categorySelect = form?.querySelector<HTMLSelectElement>('[name="category"]');
+    const tagSelect = form?.querySelector<HTMLSelectElement>('[name="tag"]');
+    function filterNotes() {
+      const category = categorySelect?.value ?? '';
+      const tag = tagSelect?.value ?? '';
+      for (const select of [categorySelect, tagSelect]) {
+        select?.setAttribute('aria-invalid', String(select.selectedOptions[0]?.dataset.unknown === 'true'));
+      }
+      let count = 0;
+      document.querySelectorAll<HTMLElement>('.note-list-item').forEach((item) => {
+        const tags: string[] = JSON.parse(item.dataset.tags ?? '[]');
+        item.hidden = Boolean((category && item.dataset.category !== category) || (tag && !tags.includes(tag)));
+        if (!item.hidden) count++;
+      });
+      const countElement = document.querySelector('#note-count');
+      if (countElement) countElement.textContent = String(count);
+      const empty = document.querySelector<HTMLElement>('#no-notes');
+      if (empty) empty.hidden = count > 0;
+    }
+    function readFilters() {
+      const params = new URLSearchParams(location.search);
+      for (const [select, name] of [[categorySelect, 'category'], [tagSelect, 'tag']] as const) {
+        if (!select) continue;
+        select.querySelectorAll('[data-unknown]').forEach((option) => option.remove());
+        const value = params.get(name) ?? '';
+        if (value && ![...select.options].some((option) => option.value === value)) {
+          const option = new Option(`${form?.dataset.unknownFilter}: ${value}`, value);
+          option.dataset.unknown = 'true';
+          option.disabled = true;
+          select.add(option);
+        }
+        select.value = value;
+      }
+      filterNotes();
+    }
+    form?.addEventListener('submit', (event) => event.preventDefault());
+    form?.addEventListener('change', () => {
+      const params = new URLSearchParams();
+      if (categorySelect?.value) params.set('category', categorySelect.value);
+      if (tagSelect?.value) params.set('tag', tagSelect.value);
+      history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}`);
+      filterNotes();
+    });
+    addEventListener('popstate', readFilters);
+    readFilters();
+  </script>
+</Site>

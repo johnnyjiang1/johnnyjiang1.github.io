@@ -1,0 +1,21 @@
+---
+import { buildInfo, commitUrl } from '../lib/git';
+import PageInfo from '../components/PageInfo.astro';
+---
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex" /><title>404 · Knowledge Notes</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { max-width: 42rem; margin: 15vh auto; padding: 2rem; line-height: 1.8; }
+      h1 { font-size: 4rem; margin-bottom: 0; } a { color: #258fb8; } nav { display: flex; gap: 2rem; }
+      footer { margin-top: 4rem; font-size: .8rem; }
+    </style>
+  </head>
+  <body><h1>404</h1><p>页面不存在 / Page not found</p>
+    <nav aria-label="Return to knowledge base"><a href="/zh/" lang="zh-CN">返回中文知识库</a><a href="/en/" lang="en">English knowledge base</a></nav>
+    <footer data-build-time={buildInfo.time} data-build-commit={buildInfo.commit}>Build: <time datetime={buildInfo.time}>{buildInfo.time}</time> · <a href={commitUrl(buildInfo.commit)}>{buildInfo.commit.slice(0, 7)}</a>{buildInfo.dirty ? ' · Uncommitted / 未提交' : ''}</footer>
+    <PageInfo language="zh" filePath="src/pages/404.astro" />
+    <PageInfo language="en" filePath="src/pages/404.astro" />
+  </body>
+</html>

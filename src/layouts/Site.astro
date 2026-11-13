@@ -1,0 +1,133 @@
+---
+import Tree from '../components/Tree.astro';
+import BuildInfo from '../components/BuildInfo.astro';
+import PageInfo from '../components/PageInfo.astro';
+import { getKnowledgeBase } from '../lib/content';
+import { text } from '../lib/i18n';
+import { documentUrl, navigationFor, sourceFor, type Language } from '../lib/model';
+import '../styles/site.css';
+import 'katex/dist/katex.min.css';
+
+interface Props {
+  language: Language;
+  title: string;
+  description: string;
+  activeKey?: string;
+  home?: boolean;
+  noindex?: boolean;
+  sourcePath?: string;
+}
+const { language, title, description, activeKey, home = false, noindex = false, sourcePath } = Astro.props;
+const t = text(language);
+const { root } = await getKnowledgeBase();
+const { domains, domain, sidebarRoot } = navigationFor(root, activeKey);
+const otherLanguage = language === 'zh' ? 'en' : 'zh';
+const heroTitle = domain ? sourceFor(domain, language).data.title : t.site;
+const heroSubtitle = domain?.translations[otherLanguage]?.data.title ?? t.subtitle;
+const otherPath = Astro.url.pathname.replace(/^\/(zh|en)\//, `/${otherLanguage}/`);
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+<!doctype html>
+<html lang={language === 'zh' ? 'zh-CN' : 'en'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title === t.site ? title : `${title} · ${t.site}`}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="zh-CN" href={new URL(Astro.url.pathname.replace(/^\/(zh|en)\//, '/zh/'), Astro.site)} />
+    <link rel="alternate" hreflang="en" href={new URL(Astro.url.pathname.replace(/^\/(zh|en)\//, '/en/'), Astro.site)} />
+    <script is:inline>
+      try {
+        const theme = localStorage.getItem('notes-theme');
+        document.documentElement.dataset.theme = theme === 'dark' || theme === 'light'
+          ? theme : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } catch (error) {
+        console.warn('Theme preference storage is unavailable.', error);
+        document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+    </script>
+    <noscript><style>.directory { display: block !important; } .mobile-directory, .theme-toggle { display: none !important; }</style></noscript>
+  </head>
+  <body data-language={language} data-copy={t.copy} data-copied={t.copied} data-copy-failed={t.copyFailed}>
+    <a class="skip-link" href="#main">{t.skip}</a>
+    <header class:list={['site-header', { 'home-header': home }]}>
+      <nav class="top-nav outer" aria-label={language === 'zh' ? '主导航' : 'Main navigation'}>
+        <div class="knowledge-menus">
+          {domains.map((knowledgeDomain) => {
+            const topics = knowledgeDomain.children.filter((node) => node.folder);
+            const panelId = `knowledge-menu-${knowledgeDomain.key}`;
+            return <details class="knowledge-menu" data-domain-key={knowledgeDomain.key}>
+              <summary class="knowledge-menu-trigger" aria-controls={panelId}>
+                <span>{sourceFor(knowledgeDomain, language).data.title}</span><span class="menu-chevron" aria-hidden="true"></span>
+              </summary>
+              <div class="knowledge-menu-panel" id={panelId}>
+                <a class="knowledge-menu-home" href={documentUrl(language, knowledgeDomain.key)} aria-current={activeKey === knowledgeDomain.key ? 'page' : undefined}>{t.domainHome}</a>
+                <ul>
+                  {topics.map((category) => <li>
+                    <a href={documentUrl(language, category.key)} data-category-key={category.key}
+                      aria-current={activeKey === category.key ? 'page' : activeKey?.startsWith(`${category.key}/`) ? 'location' : undefined}>
+                      {sourceFor(category, language).data.title}
+                      {!category.translations[language] && <span class="status"> · {t.pending}</span>}
+                    </a>
+                  </li>)}
+                </ul>
+                {!topics.length && <p class="muted">{t.emptyFolder}</p>}
+              </div>
+            </details>;
+          })}
+        </div>
+        <div class="nav-tools">
+          <a class="search-link" href={`/${language}/search/`} aria-label={t.search}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+            <span>{t.search}</span>
+          </a>
+          <a href={otherPath} class="language-switch" lang={otherLanguage === 'zh' ? 'zh-CN' : 'en'} hreflang={otherLanguage === 'zh' ? 'zh-CN' : 'en'}>{otherLanguage === 'zh' ? '中文' : 'EN'}</a>
+          <button type="button" class="theme-toggle" aria-label={t.theme} aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" /></svg>
+          </button>
+        </div>
+      </nav>
+      <div class="hero-title outer">
+        <a href={documentUrl(language, domain?.key)}>{heroTitle}</a>
+        <p>{heroSubtitle}</p>
+        {home && <span class="hero-caption">READ · THINK · CONNECT</span>}
+      </div>
+    </header>
+    {!home && <div class="mobile-directory outer">
+      <button type="button" class="directory-toggle" aria-expanded="false" aria-controls="directory">{t.menu} <span aria-hidden="true">⌄</span></button>
+    </div>}
+    <div class:list={['site-grid outer', { 'home-layout': home }]}>
+      {!home && <aside class="directory" id="directory">
+        <nav class="sticky-panel" aria-label={t.tree} data-sidebar-root={sidebarRoot.key}>
+          <h2 class="panel-label">{t.tree}</h2>
+          <a class="tree-home" href={documentUrl(language, sidebarRoot.key)} aria-current={activeKey === sidebarRoot.key ? 'page' : undefined}>
+            {sidebarRoot.key ? sourceFor(sidebarRoot, language).data.title : t.home}
+            {!sidebarRoot.translations[language] && <span class="translation-dot" title={t.pending}>○</span>}
+          </a>
+          <Tree nodes={sidebarRoot.children} language={language} activeKey={activeKey} />
+        </nav>
+      </aside>}
+      <main id="main" tabindex="-1"><slot />{sourcePath && <PageInfo language={language} filePath={sourcePath} />}</main>
+      {!home && <aside class="page-outline"><div class="sticky-panel"><slot name="outline" /></div></aside>}
+    </div>
+    <footer class="site-footer">
+      <div class="outer footer-inner">
+        <div>
+          <a href={documentUrl(language)}>{t.site}</a><p>{t.builtFrom}</p>
+          <nav class="footer-links" aria-label={language === 'zh' ? '更多导航' : 'More navigation'}>
+            <a href={`/${language}/notes/`}>{t.notes}</a>
+            <a href={`/${language}/tags/`}>{t.tags}</a>
+          </nav>
+        </div>
+        <BuildInfo language={language} />
+      </div>
+    </footer>
+    <script>
+      import '../scripts/site';
+    </script>
+  </body>
+</html>

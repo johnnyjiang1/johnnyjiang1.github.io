@@ -1,0 +1,29 @@
+---
+import Site from '../../layouts/Site.astro';
+import { languages, type Language } from '../../lib/model';
+import { text } from '../../lib/i18n';
+export function getStaticPaths() {
+  return languages.map((language) => ({ params: { lang: language }, props: { language } }));
+}
+interface Props { language: Language }
+const { language } = Astro.props;
+const t = text(language);
+---
+<Site language={language} title={t.search} description={t.searchHint} sourcePath="src/pages/[lang]/search.astro" noindex>
+  <article class="document-card" id="search-page" data-dev={import.meta.env.DEV ? 'true' : undefined} data-dev-message={t.searchDev} data-error-message={t.searchError} data-loading={t.loading} data-empty={t.noResults}>
+    <header class="document-heading"><p class="eyebrow">KNOWLEDGE / DISCOVERY</p><h1>{t.search}</h1><p class="lead">{t.searchHint}</p></header>
+    <form class="search-form" role="search">
+      <label for="search-query">{t.search}</label>
+      <input id="search-query" type="search" name="q" placeholder={t.searchHint} autocomplete="off" />
+      <label for="search-language">{t.searchLanguage}</label>
+      <select id="search-language"><option value="zh" selected={language === 'zh'}>中文</option><option value="en" selected={language === 'en'}>English</option></select>
+      <button type="submit" class="primary-link">{t.search}</button>
+    </form>
+    <noscript><p>{language === 'zh' ? '本地全文搜索需要 JavaScript；你仍可使用知识目录浏览全部文档。' : 'Local full-text search requires JavaScript. You can still browse all documents using the contents navigation.'}</p></noscript>
+    <p id="search-status" class="result-count" role="status" aria-live="polite"></p>
+    <ol id="search-results" class="search-results"></ol>
+  </article>
+  <script>
+    import '../../scripts/search';
+  </script>
+</Site>

@@ -1,0 +1,14 @@
+---
+import { buildInfo, commitUrl } from '../lib/git';
+import { text, formatDate } from '../lib/i18n';
+import type { Language } from '../lib/model';
+interface Props { language: Language }
+const { language } = Astro.props;
+const t = text(language);
+---
+<div class="build-info" data-build-time={buildInfo.time} data-build-commit={buildInfo.commit}>
+  <span>{t.build}: <time datetime={buildInfo.time}>{formatDate(buildInfo.time, language)}</time></span>
+  <span>{t.sourceCommit}: <a href={commitUrl(buildInfo.commit)}><code>{buildInfo.commit.slice(0, 7)}</code></a>
+    {buildInfo.dirty && <strong class="status"> · {t.uncommitted}</strong>}
+  </span>
+</div>

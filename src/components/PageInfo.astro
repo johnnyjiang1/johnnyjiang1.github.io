@@ -1,0 +1,15 @@
+---
+import { pageHistory, commitUrl } from '../lib/git';
+import { text, formatDate } from '../lib/i18n';
+import type { Language } from '../lib/model';
+interface Props { language: Language; filePath: string }
+const { language, filePath } = Astro.props;
+const t = text(language);
+const history = pageHistory(filePath);
+---
+<div class="document-meta system-page-info" data-pagefind-ignore>
+  <span>{t.updated}: {history.updated ? <time datetime={history.updated}>{formatDate(history.updated, language)}</time> : t.noHistory}
+    {history.dirty && <strong class="status"> · {t.uncommitted}</strong>}
+  </span>
+  <span>{t.pageCommit}: {history.commit ? <a href={commitUrl(history.commit)}><code>{history.commit.slice(0, 7)}</code></a> : '—'}</span>
+</div>

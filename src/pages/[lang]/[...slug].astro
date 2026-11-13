@@ -1,0 +1,110 @@
+---
+import { render } from 'astro:content';
+import Site from '../../layouts/Site.astro';
+import { getKnowledgeBase } from '../../lib/content';
+import { languages, sourceFor, documentUrl, navigationFor, tagUrl, type Language, type DocumentNode } from '../../lib/model';
+import { formatDate, text } from '../../lib/i18n';
+import { pageHistory, commitUrl } from '../../lib/git';
+
+export async function getStaticPaths() {
+  const { nodes } = await getKnowledgeBase();
+  return languages.flatMap((language) => nodes.map((node) => ({
+    params: { lang: language, slug: node.key || undefined },
+    props: { language, node },
+  })));
+}
+
+interface Props { language: Language; node: DocumentNode }
+const { language, node } = Astro.props;
+const t = text(language);
+const { root, nodes, entries } = await getKnowledgeBase();
+const { home, domain, topic } = navigationFor(root, node.key);
+const source = node.translations[language];
+const fallback = sourceFor(node, language);
+const entry = source ? entries.find((candidate) => candidate.id === source.id) : undefined;
+if (source && !entry) throw new Error(`Missing collection entry: ${source.id}`);
+const rendered = entry ? await render(entry) : undefined;
+const Content = rendered?.Content;
+const headings = home ? [] : rendered?.headings.filter((heading) => heading.depth > 1 && heading.depth <= 3) ?? [];
+const history = source ? pageHistory(source.filePath) : undefined;
+const position = nodes.findIndex((candidate) => candidate.key === node.key);
+const previous = nodes[position - 1];
+const next = nodes[position + 1];
+const segments = node.key ? node.key.split('/') : [];
+const parents = segments.slice(0, -1).map((_, index) => {
+  const key = segments.slice(0, index + 1).join('/');
+  const parent = nodes.find((candidate) => candidate.key === key);
+  if (!parent) throw new Error(`Missing breadcrumb parent: ${key}`);
+  return parent;
+});
+const title = source ? source.data.title : `${t.missing} · ${fallback.data.title}`;
+const categoryNode = topic ?? domain;
+const children = home ? node.children.filter((child) => child.folder) : node.children;
+---
+<Site language={language} title={title} description={source?.data.description ?? t.missingDescription} activeKey={node.key} home={home} noindex={!source}>
+  <article class:list={[home ? 'home-page' : 'document-card']} data-pagefind-body={source ? true : undefined} data-document-key={node.key} data-placeholder={!source ? 'true' : undefined}>
+    {node.key && <nav class="breadcrumbs" aria-label={language === 'zh' ? '当前位置' : 'Breadcrumb'} data-pagefind-ignore>
+      <a href={documentUrl(language)}>{t.home}</a>
+      {parents.map((parent) => <><span aria-hidden="true">/</span><a href={documentUrl(language, parent.key)}>{sourceFor(parent, language).data.title}</a></>)}
+      {node.key && <><span aria-hidden="true">/</span><span>{fallback.data.title}</span></>}
+    </nav>}
+    <header class="document-heading">
+      {!home && <div class="eyebrow" data-pagefind-ignore>{node.folder ? t.folder : t.note}</div>}
+      <h1 data-pagefind-meta="title">{title}</h1>
+      <p class="lead">{source?.data.description ?? t.missingDescription}</p>
+      {source && <div class="document-meta" data-pagefind-ignore>
+        {source.data.published && <span>{t.published}: <time datetime={source.data.published}>{formatDate(source.data.published, language, true)}</time></span>}
+        <span>{t.updated}: {history?.updated ? <time datetime={history.updated}>{formatDate(history.updated, language)}</time> : t.noHistory}
+          {history?.dirty && <strong class="status"> · {t.uncommitted}</strong>}
+        </span>
+        <span>{t.pageCommit}: {history?.commit ? <a href={commitUrl(history.commit)}><code>{history.commit.slice(0, 7)}</code></a> : '—'}</span>
+      </div>}
+      {!source && <div class="document-meta">
+        <span>{t.updated}: {t.placeholderHistory}</span>
+        <span>{t.pageCommit}: —</span>
+      </div>}
+      {source && node.key && <div class="tag-row" data-pagefind-ignore>
+        {!node.folder && categoryNode && <a class="category-chip" href={`/${language}/notes/?category=${encodeURIComponent(categoryNode.key)}`}>{sourceFor(categoryNode, language).data.title}</a>}
+        {source.data.tags.map((tag) => <a class="tag" href={tagUrl(language, tag)}>#{tag}</a>)}
+      </div>}
+    </header>
+    {headings.length > 0 && <details class="inline-toc" data-pagefind-ignore>
+      <summary>{t.toc}</summary>
+      <nav aria-label={t.toc}>{headings.map((heading) => <a class:list={{ 'toc-subheading': heading.depth === 3 }} href={`#${heading.slug}`}>{heading.text}</a>)}</nav>
+    </details>}
+    {Content ? <div class="prose"><Content /></div> : (
+      <section class="translation-placeholder" data-pagefind-ignore>
+        <span class="placeholder-icon" aria-hidden="true">文 / A</span>
+        <h2>{t.missing}</h2>
+        <p>{t.missingDescription}</p>
+        <a class="primary-link" href={documentUrl(language === 'zh' ? 'en' : 'zh', node.key)}>{t.readOriginal} <span aria-hidden="true">→</span></a>
+      </section>
+    )}
+    {node.folder && <section class="section-browser" data-pagefind-ignore>
+      <h2>{home ? domain ? t.topics : t.domains : t.browse}</h2>
+      {children.length ? <div class:list={['section-cards', { 'topic-cards': home }]}>
+        {children.map((child) => <a class="section-card" href={documentUrl(language, child.key)}>
+          <span class="section-card-type">
+            {home ? <svg class="topic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v10H3Z" /><path d="M3 10h18" /></svg> : child.folder ? t.folder : t.note}
+            <span aria-hidden="true"> ↗</span>
+          </span>
+          <h3>{sourceFor(child, language).data.title}</h3>
+          <p>{child.translations[language]?.data.description ?? t.missingDescription}</p>
+          {!child.translations[language] && <span class="status">{t.pending}</span>}
+        </a>)}
+      </div> : <p class="muted">{t.emptyFolder}</p>}
+    </section>}
+    {!home && <nav class="page-navigation" aria-label={language === 'zh' ? '文档翻页' : 'Document pagination'} data-pagefind-ignore>
+      {previous ? <a rel="prev" href={documentUrl(language, previous.key)}><span>← {t.previous}</span><strong>{sourceFor(previous, language).data.title}</strong></a> : <span />}
+      {next && <a rel="next" href={documentUrl(language, next.key)}><span>{t.next} →</span><strong>{sourceFor(next, language).data.title}</strong></a>}
+    </nav>}
+  </article>
+  <Fragment slot="outline">
+    <h2 class="panel-label">{t.toc}</h2>
+    <nav aria-label={t.toc} class="toc">
+      <a href="#main">{source?.data.title ?? t.missing}</a>
+      {headings.map((heading) => <a class:list={{ 'toc-subheading': heading.depth === 3 }} href={`#${heading.slug}`}>{heading.text}</a>)}
+    </nav>
+    <div class="outline-note"><span class="small-rule"></span>READ · THINK · CONNECT</div>
+  </Fragment>
+</Site>
